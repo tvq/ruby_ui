@@ -95,14 +95,44 @@ export default class extends Controller {
 
   hide() {
     this.openValue = false;
-    this.contentTarget.classList.add("hidden");
     this.contentTarget.dataset.state = "closed";
+    this.hideAfterExitAnimation();
     document.removeEventListener("keydown", this.boundHandleKeydown);
     this.deselectAll();
     if (this.cleanup) {
       this.cleanup();
       this.cleanup = null;
     }
+  }
+
+  hideAfterExitAnimation() {
+    const content = this.contentTarget;
+    const styles = getComputedStyle(content);
+
+    // An element with no exit animation never fires animationend.
+    if (styles.animationName === "none" || styles.display === "none") {
+      this.hideUnlessReopened(content);
+      return;
+    }
+
+    content.addEventListener("animationend", this.handleExitAnimationEnd);
+    content.addEventListener("animationcancel", this.handleExitAnimationEnd);
+  }
+
+  handleExitAnimationEnd = (event) => {
+    // animationend bubbles — an animated child must not hide its container.
+    if (event.target !== event.currentTarget) return;
+
+    const content = event.currentTarget;
+    content.removeEventListener("animationend", this.handleExitAnimationEnd);
+    content.removeEventListener("animationcancel", this.handleExitAnimationEnd);
+    this.hideUnlessReopened(content);
+  };
+
+  hideUnlessReopened(content) {
+    if (content.dataset.state !== "closed") return;
+
+    content.classList.add("hidden");
   }
 
   updatePosition() {

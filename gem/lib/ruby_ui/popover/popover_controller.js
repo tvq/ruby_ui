@@ -112,8 +112,38 @@ export default class extends Controller {
 
     if (!this.hasContentTarget) return;
 
-    this.contentTarget.classList.add("hidden");
     this.contentTarget.dataset.state = "closed";
+    this.hideAfterExitAnimation();
+  }
+
+  hideAfterExitAnimation() {
+    const content = this.contentTarget;
+    const styles = getComputedStyle(content);
+
+    // An element with no exit animation never fires animationend.
+    if (styles.animationName === "none" || styles.display === "none") {
+      this.hideUnlessReopened(content);
+      return;
+    }
+
+    content.addEventListener("animationend", this.handleExitAnimationEnd);
+    content.addEventListener("animationcancel", this.handleExitAnimationEnd);
+  }
+
+  handleExitAnimationEnd = (event) => {
+    // animationend bubbles — an animated child must not hide its container.
+    if (event.target !== event.currentTarget) return;
+
+    const content = event.currentTarget;
+    content.removeEventListener("animationend", this.handleExitAnimationEnd);
+    content.removeEventListener("animationcancel", this.handleExitAnimationEnd);
+    this.hideUnlessReopened(content);
+  };
+
+  hideUnlessReopened(content) {
+    if (content.dataset.state !== "closed") return;
+
+    content.classList.add("hidden");
   }
 
   updatePosition() {
