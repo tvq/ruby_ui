@@ -128,7 +128,7 @@ export default class extends Controller {
       return;
     }
 
-    this.exitAnimationName = styles.animationName;
+    this.exitAnimationNames = styles.animationName.split(",").map((name) => name.trim());
     content.addEventListener("animationend", this.handleExitAnimationEnd);
     content.addEventListener("animationcancel", this.handleExitAnimationEnd);
   }
@@ -137,7 +137,7 @@ export default class extends Controller {
     // animationend bubbles — an animated child must not hide its container.
     if (event.target !== event.currentTarget) return;
     // Closing mid-open cancels the enter animation; only the exit run settles this.
-    if (event.animationName !== this.exitAnimationName) return;
+    if (!this.exitAnimationNames.includes(event.animationName)) return;
 
     this.settleExit(event.currentTarget);
   };
