@@ -33,6 +33,8 @@ export default class extends Controller {
     document.removeEventListener("click", this.handleOutsideClick);
     this.stopAutoUpdate();
     this.removeElementEventListeners();
+    // Nothing is left to wait for the exit animation, so apply the pending hide now.
+    if (this.hasContentTarget) this.settleExit(this.contentTarget);
   }
 
   addEventListeners() {
@@ -122,10 +124,11 @@ export default class extends Controller {
 
     // An element with no exit animation never fires animationend.
     if (styles.animationName === "none" || styles.display === "none") {
-      this.hideUnlessReopened(content);
+      this.settleExit(content);
       return;
     }
 
+    this.exitAnimationName = styles.animationName;
     content.addEventListener("animationend", this.handleExitAnimationEnd);
     content.addEventListener("animationcancel", this.handleExitAnimationEnd);
   }
@@ -133,14 +136,16 @@ export default class extends Controller {
   handleExitAnimationEnd = (event) => {
     // animationend bubbles — an animated child must not hide its container.
     if (event.target !== event.currentTarget) return;
+    // Closing mid-open cancels the enter animation; only the exit run settles this.
+    if (event.animationName !== this.exitAnimationName) return;
 
-    const content = event.currentTarget;
-    content.removeEventListener("animationend", this.handleExitAnimationEnd);
-    content.removeEventListener("animationcancel", this.handleExitAnimationEnd);
-    this.hideUnlessReopened(content);
+    this.settleExit(event.currentTarget);
   };
 
-  hideUnlessReopened(content) {
+  settleExit(content) {
+    content.removeEventListener("animationend", this.handleExitAnimationEnd);
+    content.removeEventListener("animationcancel", this.handleExitAnimationEnd);
+    // Reopened mid-exit: it is on its way back in, leave it visible.
     if (content.dataset.state !== "closed") return;
 
     content.classList.add("hidden");
