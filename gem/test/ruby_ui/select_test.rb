@@ -39,4 +39,13 @@ class RubyUI::SelectTest < ComponentTest
 
     assert_match(/Placeholder/, output)
   end
+
+  # `hidden` lands a frame after the animation ends; without a forwards fill mode that frame flashes.
+  def test_content_holds_the_last_frame_of_the_exit_animation
+    output = phlex do
+      RubyUI.SelectContent { "options" }
+    end
+
+    assert_match(/data-\[state=closed\]:fill-mode-forwards/, output)
+  end
 end

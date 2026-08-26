@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus";
 import { computePosition, autoUpdate, offset, flip } from "@floating-ui/dom";
 
 export default class extends Controller {
-  static targets = ["trigger", "content", "input", "value", "item"];
+  static targets = ["trigger", "content", "panel", "input", "value", "item"];
   static values = { open: Boolean };
   static outlets = ["ruby-ui--select-item"];
 
@@ -17,6 +17,8 @@ export default class extends Controller {
   }
 
   disconnect() {
+    // Nothing is left to wait for the exit animation, so apply the pending hide now.
+    if (this.hasPanelTarget) this.settleExit(this.panelTarget);
     this.cleanup();
   }
 
@@ -114,8 +116,57 @@ export default class extends Controller {
 
   toogleContent() {
     this.openValue = !this.openValue;
-    this.contentTarget.classList.toggle("hidden");
     this.triggerTarget.setAttribute("aria-expanded", this.openValue);
+
+    if (this.openValue) {
+      this.contentTarget.classList.remove("hidden");
+      this.panelTarget.dataset.state = "open";
+      return;
+    }
+
+    this.panelTarget.dataset.state = "closed";
+    this.hideAfterExitAnimation(this.panelTarget);
+  }
+
+  afterExit() {
+    this.contentTarget.classList.add("hidden");
+  }
+
+  // Overlay exit — the same block in every overlay controller, so keep them in sync.
+  exitAnimationNames = new WeakMap();
+
+  hideAfterExitAnimation(animated) {
+    const exitAnimations = animated
+      .getAnimations()
+      .filter((animation) => animation instanceof CSSAnimation);
+
+    // No exit animation, or no box to run it in: animationend would never fire.
+    if (exitAnimations.length === 0) {
+      this.settleExit(animated);
+      return;
+    }
+
+    this.exitAnimationNames.set(animated, exitAnimations.map((animation) => animation.animationName));
+    animated.addEventListener("animationend", this.handleExitAnimationEnd);
+    animated.addEventListener("animationcancel", this.handleExitAnimationEnd);
+  }
+
+  handleExitAnimationEnd = (event) => {
+    // animationend bubbles — an animated child must not hide its container.
+    if (event.target !== event.currentTarget) return;
+    // Closing mid-open cancels the enter animation; only the exit run settles this.
+    if (!this.exitAnimationNames.get(event.currentTarget)?.includes(event.animationName)) return;
+
+    this.settleExit(event.currentTarget);
+  };
+
+  settleExit(animated) {
+    animated.removeEventListener("animationend", this.handleExitAnimationEnd);
+    animated.removeEventListener("animationcancel", this.handleExitAnimationEnd);
+    // Reopened mid-exit: it is on its way back in, leave it visible.
+    if (animated.dataset.state !== "closed") return;
+
+    this.afterExit(animated);
   }
 
   setFloatingElement() {
