@@ -27,14 +27,15 @@ export default class extends Controller {
     this.addEventListeners();
   }
 
+  // Teardown that cannot fail comes first: a missing target throws, and Stimulus skips the rest.
   disconnect() {
-    this.removeEventListeners();
     this.clearTimers();
     document.removeEventListener("keydown", this.boundHandleKeydown);
     if (this.cleanup) {
       this.cleanup();
       this.cleanup = null;
     }
+    this.removeEventListeners();
     // Nothing is left to wait for the exit animation, so apply the pending hide now.
     if (this.hasContentTarget) this.settleExit(this.contentTarget);
   }
@@ -59,14 +60,19 @@ export default class extends Controller {
   }
 
   removeEventListeners() {
-    this.triggerTarget.removeEventListener("mouseenter", this.handleMouseEnter);
-    this.triggerTarget.removeEventListener("mouseleave", this.handleMouseLeave);
-    this.triggerTarget.removeEventListener("focusin", this.handleMouseEnter);
-    this.triggerTarget.removeEventListener("focusout", this.handleMouseLeave);
-    this.contentTarget.removeEventListener("mouseenter", this.handleMouseEnter);
-    this.contentTarget.removeEventListener("mouseleave", this.handleMouseLeave);
-    this.contentTarget.removeEventListener("focusin", this.handleMouseEnter);
-    this.contentTarget.removeEventListener("focusout", this.handleMouseLeave);
+    if (this.hasTriggerTarget) {
+      this.triggerTarget.removeEventListener("mouseenter", this.handleMouseEnter);
+      this.triggerTarget.removeEventListener("mouseleave", this.handleMouseLeave);
+      this.triggerTarget.removeEventListener("focusin", this.handleMouseEnter);
+      this.triggerTarget.removeEventListener("focusout", this.handleMouseLeave);
+    }
+
+    if (this.hasContentTarget) {
+      this.contentTarget.removeEventListener("mouseenter", this.handleMouseEnter);
+      this.contentTarget.removeEventListener("mouseleave", this.handleMouseLeave);
+      this.contentTarget.removeEventListener("focusin", this.handleMouseEnter);
+      this.contentTarget.removeEventListener("focusout", this.handleMouseLeave);
+    }
   }
 
   handleMouseEnter = () => {
@@ -97,27 +103,32 @@ export default class extends Controller {
 
   hide() {
     this.openValue = false;
-    this.contentTarget.dataset.state = "closed";
-    this.hideAfterExitAnimation();
     document.removeEventListener("keydown", this.boundHandleKeydown);
     this.deselectAll();
     if (this.cleanup) {
       this.cleanup();
       this.cleanup = null;
     }
+
+    if (!this.hasContentTarget) return;
+
+    this.contentTarget.dataset.state = "closed";
+    this.hideAfterExitAnimation();
   }
 
   hideAfterExitAnimation() {
     const content = this.contentTarget;
-    const styles = getComputedStyle(content);
+    const exitAnimations = content
+      .getAnimations()
+      .filter((animation) => animation instanceof CSSAnimation);
 
-    // An element with no exit animation never fires animationend.
-    if (styles.animationName === "none" || styles.display === "none") {
+    // No exit animation, or no box to run it in: animationend would never fire.
+    if (exitAnimations.length === 0) {
       this.settleExit(content);
       return;
     }
 
-    this.exitAnimationNames = styles.animationName.split(",").map((name) => name.trim());
+    this.exitAnimationNames = exitAnimations.map((animation) => animation.animationName);
     content.addEventListener("animationend", this.handleExitAnimationEnd);
     content.addEventListener("animationcancel", this.handleExitAnimationEnd);
   }

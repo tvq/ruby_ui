@@ -51,27 +51,32 @@ export default class extends Controller {
   hide() {
     if (!this.openValue) return;
     this.openValue = false;
-    this.contentTarget.dataset.state = "closed";
-    this.hideAfterExitAnimation();
     this.removeEventListeners();
     this.deselectAll();
     if (this.cleanup) {
       this.cleanup();
       this.cleanup = null;
     }
+
+    if (!this.hasContentTarget) return;
+
+    this.contentTarget.dataset.state = "closed";
+    this.hideAfterExitAnimation();
   }
 
   hideAfterExitAnimation() {
     const content = this.contentTarget;
-    const styles = getComputedStyle(content);
+    const exitAnimations = content
+      .getAnimations()
+      .filter((animation) => animation instanceof CSSAnimation);
 
-    // An element with no exit animation never fires animationend.
-    if (styles.animationName === "none" || styles.display === "none") {
+    // No exit animation, or no box to run it in: animationend would never fire.
+    if (exitAnimations.length === 0) {
       this.settleExit(content);
       return;
     }
 
-    this.exitAnimationNames = styles.animationName.split(",").map((name) => name.trim());
+    this.exitAnimationNames = exitAnimations.map((animation) => animation.animationName);
     content.addEventListener("animationend", this.handleExitAnimationEnd);
     content.addEventListener("animationcancel", this.handleExitAnimationEnd);
   }
