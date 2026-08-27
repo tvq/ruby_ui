@@ -24,8 +24,7 @@ export default class extends Controller {
 
   dismiss() {
     this.backdropTarget.dataset.state = "closed";
-    this.panelTarget.dataset.state = "closed";
-    this.hideAfterExitAnimation(this.panelTarget);
+    this.closeWithExitAnimation(this.panelTarget);
   }
 
   // Opened again while dismissing: bring this instance back instead of stacking a new one.
@@ -42,36 +41,32 @@ export default class extends Controller {
   }
 
   // Overlay exit — the same block in every overlay controller, so keep them in sync.
-  exitAnimationNames = new WeakMap();
+  exitRuns = new WeakMap();
 
-  hideAfterExitAnimation(animated) {
-    const exitAnimations = animated
-      .getAnimations()
-      .filter((animation) => animation instanceof CSSAnimation);
+  closeWithExitAnimation(animated) {
+    const running = new Set(animated.getAnimations());
+    animated.dataset.state = "closed";
+    // Only what the closed state started is the exit: not a cancelled enter, not an unrelated loop.
+    const exitAnimations = animated.getAnimations().filter((animation) => !running.has(animation));
 
-    // No exit animation, or no box to run it in: animationend would never fire.
+    // No exit animation, or no box to run it in: nothing would ever finish.
     if (exitAnimations.length === 0) {
       this.settleExit(animated);
       return;
     }
 
-    this.exitAnimationNames.set(animated, exitAnimations.map((animation) => animation.animationName));
-    animated.addEventListener("animationend", this.handleExitAnimationEnd);
-    animated.addEventListener("animationcancel", this.handleExitAnimationEnd);
+    this.exitRuns.set(animated, exitAnimations);
+    // `finished` rejects when a run is cancelled, so this settles once every run is over either way.
+    Promise.allSettled(exitAnimations.map((animation) => animation.finished)).then(() => {
+      // Settled on disconnect meanwhile, or superseded by a newer close.
+      if (this.exitRuns.get(animated) !== exitAnimations) return;
+
+      this.settleExit(animated);
+    });
   }
 
-  handleExitAnimationEnd = (event) => {
-    // animationend bubbles — an animated child must not hide its container.
-    if (event.target !== event.currentTarget) return;
-    // Closing mid-open cancels the enter animation; only the exit run settles this.
-    if (!this.exitAnimationNames.get(event.currentTarget)?.includes(event.animationName)) return;
-
-    this.settleExit(event.currentTarget);
-  };
-
   settleExit(animated) {
-    animated.removeEventListener("animationend", this.handleExitAnimationEnd);
-    animated.removeEventListener("animationcancel", this.handleExitAnimationEnd);
+    this.exitRuns.delete(animated);
     // Reopened mid-exit: it is on its way back in, leave it visible.
     if (animated.dataset.state !== "closed") return;
 
