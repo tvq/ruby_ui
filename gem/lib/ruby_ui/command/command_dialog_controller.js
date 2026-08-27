@@ -23,7 +23,7 @@ export default class extends Controller {
     }
 
     if (this.openOutlet) {
-      this.openOutlet.focusInput();
+      this.openOutlet.show();
       return;
     }
 

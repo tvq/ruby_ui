@@ -62,4 +62,13 @@ class RubyUI::CommandTest < ComponentTest
     assert_match(/Search/, output)
     assert_match(/data-controller="ruby-ui--command"/, output)
   end
+
+  # Removal lands a frame after the animation ends; without a forwards fill mode that frame flashes.
+  def test_content_and_backdrop_hold_the_last_frame_of_the_exit_animation
+    output = phlex do
+      RubyUI.CommandDialogContent { "command body" }
+    end
+
+    assert_equal 2, output.scan("data-[state=closed]:fill-mode-forwards").size
+  end
 end

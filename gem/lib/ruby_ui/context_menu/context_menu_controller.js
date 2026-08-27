@@ -24,6 +24,8 @@ export default class extends Controller {
 
   disconnect() {
     this.hide();
+    // Nothing is left to wait for the exit animation, so apply the pending hide now.
+    if (this.hasContentTarget) this.settleExit(this.contentTarget);
   }
 
   handleContextMenu(event) {
@@ -49,14 +51,58 @@ export default class extends Controller {
   hide() {
     if (!this.openValue) return;
     this.openValue = false;
-    this.contentTarget.classList.add("hidden");
-    this.contentTarget.dataset.state = "closed";
     this.removeEventListeners();
     this.deselectAll();
     if (this.cleanup) {
       this.cleanup();
       this.cleanup = null;
     }
+
+    if (!this.hasContentTarget) return;
+
+    this.contentTarget.dataset.state = "closed";
+    this.hideAfterExitAnimation(this.contentTarget);
+  }
+
+  afterExit(content) {
+    content.classList.add("hidden");
+  }
+
+  // Overlay exit — the same block in every overlay controller, so keep them in sync.
+  exitAnimationNames = new WeakMap();
+
+  hideAfterExitAnimation(animated) {
+    const exitAnimations = animated
+      .getAnimations()
+      .filter((animation) => animation instanceof CSSAnimation);
+
+    // No exit animation, or no box to run it in: animationend would never fire.
+    if (exitAnimations.length === 0) {
+      this.settleExit(animated);
+      return;
+    }
+
+    this.exitAnimationNames.set(animated, exitAnimations.map((animation) => animation.animationName));
+    animated.addEventListener("animationend", this.handleExitAnimationEnd);
+    animated.addEventListener("animationcancel", this.handleExitAnimationEnd);
+  }
+
+  handleExitAnimationEnd = (event) => {
+    // animationend bubbles — an animated child must not hide its container.
+    if (event.target !== event.currentTarget) return;
+    // Closing mid-open cancels the enter animation; only the exit run settles this.
+    if (!this.exitAnimationNames.get(event.currentTarget)?.includes(event.animationName)) return;
+
+    this.settleExit(event.currentTarget);
+  };
+
+  settleExit(animated) {
+    animated.removeEventListener("animationend", this.handleExitAnimationEnd);
+    animated.removeEventListener("animationcancel", this.handleExitAnimationEnd);
+    // Reopened mid-exit: it is on its way back in, leave it visible.
+    if (animated.dataset.state !== "closed") return;
+
+    this.afterExit(animated);
   }
 
   updatePosition() {

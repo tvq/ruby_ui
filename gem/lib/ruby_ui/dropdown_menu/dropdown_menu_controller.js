@@ -8,7 +8,7 @@ import {
 } from "@floating-ui/dom";
 
 export default class extends Controller {
-  static targets = ["trigger", "content", "menuItem"];
+  static targets = ["trigger", "content", "panel", "menuItem"];
   static values = {
     open: {
       type: Boolean,
@@ -31,6 +31,8 @@ export default class extends Controller {
     if (this.autoUpdateCleanup) {
       this.autoUpdateCleanup();
     }
+    // Nothing is left to wait for the exit animation, so apply the pending hide now.
+    if (this.hasPanelTarget) this.settleExit(this.panelTarget);
   }
 
   #setupAutoUpdate() {
@@ -63,9 +65,8 @@ export default class extends Controller {
   }
 
   toggle() {
-    this.contentTarget.classList.contains("hidden")
-      ? this.#open()
-      : this.close();
+    // `hidden` now lands after the exit animation, so it no longer tells the states apart.
+    this.openValue ? this.close() : this.#open();
   }
 
   #open() {
@@ -77,13 +78,57 @@ export default class extends Controller {
     // static z-index, so closed siblings stack in normal flow and never cover it.
     this.element.style.zIndex = "50";
     this.contentTarget.classList.remove("hidden");
+    this.panelTarget.dataset.state = "open";
   }
 
   close() {
     this.openValue = false;
     this.#removeEventListeners();
-    this.element.style.zIndex = "";
+    this.panelTarget.dataset.state = "closed";
+    this.hideAfterExitAnimation(this.panelTarget);
+  }
+
+  afterExit() {
     this.contentTarget.classList.add("hidden");
+    // Held at 50 until now, so the menu fades above its siblings rather than behind them.
+    this.element.style.zIndex = "";
+  }
+
+  // Overlay exit — the same block in every overlay controller, so keep them in sync.
+  exitAnimationNames = new WeakMap();
+
+  hideAfterExitAnimation(animated) {
+    const exitAnimations = animated
+      .getAnimations()
+      .filter((animation) => animation instanceof CSSAnimation);
+
+    // No exit animation, or no box to run it in: animationend would never fire.
+    if (exitAnimations.length === 0) {
+      this.settleExit(animated);
+      return;
+    }
+
+    this.exitAnimationNames.set(animated, exitAnimations.map((animation) => animation.animationName));
+    animated.addEventListener("animationend", this.handleExitAnimationEnd);
+    animated.addEventListener("animationcancel", this.handleExitAnimationEnd);
+  }
+
+  handleExitAnimationEnd = (event) => {
+    // animationend bubbles — an animated child must not hide its container.
+    if (event.target !== event.currentTarget) return;
+    // Closing mid-open cancels the enter animation; only the exit run settles this.
+    if (!this.exitAnimationNames.get(event.currentTarget)?.includes(event.animationName)) return;
+
+    this.settleExit(event.currentTarget);
+  };
+
+  settleExit(animated) {
+    animated.removeEventListener("animationend", this.handleExitAnimationEnd);
+    animated.removeEventListener("animationcancel", this.handleExitAnimationEnd);
+    // Reopened mid-exit: it is on its way back in, leave it visible.
+    if (animated.dataset.state !== "closed") return;
+
+    this.afterExit(animated);
   }
 
   #handleKeydown(e) {

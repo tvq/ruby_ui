@@ -3,7 +3,7 @@ import Fuse from "fuse.js";
 
 // Connects to data-controller="ruby-ui--command"
 export default class extends Controller {
-  static targets = ["input", "group", "item", "empty"];
+  static targets = ["input", "group", "item", "empty", "backdrop", "panel"];
 
   connect() {
     this.selectedIndex = -1;
@@ -17,11 +17,65 @@ export default class extends Controller {
     this.toggleVisibility(this.emptyTargets, false);
   }
 
+  disconnect() {
+    // Nothing is left to wait for the exit animation, so apply the pending removal now.
+    if (this.hasPanelTarget) this.settleExit(this.panelTarget);
+  }
+
   dismiss() {
-    // allow scroll on body
+    this.backdropTarget.dataset.state = "closed";
+    this.panelTarget.dataset.state = "closed";
+    this.hideAfterExitAnimation(this.panelTarget);
+  }
+
+  // Opened again while dismissing: bring this instance back instead of stacking a new one.
+  show() {
+    this.backdropTarget.dataset.state = "open";
+    this.panelTarget.dataset.state = "open";
+    document.body.classList.add("overflow-hidden");
+    this.focusInput();
+  }
+
+  afterExit() {
     document.body.classList.remove("overflow-hidden");
-    // remove the element
     this.element.remove();
+  }
+
+  // Overlay exit — the same block in every overlay controller, so keep them in sync.
+  exitAnimationNames = new WeakMap();
+
+  hideAfterExitAnimation(animated) {
+    const exitAnimations = animated
+      .getAnimations()
+      .filter((animation) => animation instanceof CSSAnimation);
+
+    // No exit animation, or no box to run it in: animationend would never fire.
+    if (exitAnimations.length === 0) {
+      this.settleExit(animated);
+      return;
+    }
+
+    this.exitAnimationNames.set(animated, exitAnimations.map((animation) => animation.animationName));
+    animated.addEventListener("animationend", this.handleExitAnimationEnd);
+    animated.addEventListener("animationcancel", this.handleExitAnimationEnd);
+  }
+
+  handleExitAnimationEnd = (event) => {
+    // animationend bubbles — an animated child must not hide its container.
+    if (event.target !== event.currentTarget) return;
+    // Closing mid-open cancels the enter animation; only the exit run settles this.
+    if (!this.exitAnimationNames.get(event.currentTarget)?.includes(event.animationName)) return;
+
+    this.settleExit(event.currentTarget);
+  };
+
+  settleExit(animated) {
+    animated.removeEventListener("animationend", this.handleExitAnimationEnd);
+    animated.removeEventListener("animationcancel", this.handleExitAnimationEnd);
+    // Reopened mid-exit: it is on its way back in, leave it visible.
+    if (animated.dataset.state !== "closed") return;
+
+    this.afterExit(animated);
   }
 
   focusInput() {
