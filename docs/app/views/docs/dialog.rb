@@ -13,7 +13,7 @@ class Views::Docs::Dialog < Views::Base
         <<~RUBY
           Dialog do
             DialogTrigger do
-              Button { "Open Dialog" }
+              Button(variant: :outline) { "Open Dialog" }
             end
             DialogContent do
               DialogHeader do
@@ -43,7 +43,7 @@ class Views::Docs::Dialog < Views::Base
           div(class: 'flex flex-wrap justify-center gap-2') do
             Dialog do
               DialogTrigger do
-                Button { "Small Dialog" }
+                Button(variant: :outline) { "Small Dialog" }
               end
               DialogContent(size: :sm) do
                 DialogHeader do
@@ -68,7 +68,7 @@ class Views::Docs::Dialog < Views::Base
 
             Dialog do
               DialogTrigger do
-                Button { "Large Dialog" }
+                Button(variant: :outline) { "Large Dialog" }
               end
               DialogContent(size: :lg) do
                 DialogHeader do
