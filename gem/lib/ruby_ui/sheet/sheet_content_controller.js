@@ -1,23 +1,55 @@
 import { Controller } from "@hotwired/stimulus";
 
+// Connects to data-controller="ruby-ui--sheet-content" on the <dialog>; ruby-ui--sheet opens it.
 export default class extends Controller {
-  static targets = ["backdrop", "panel"];
+  connect() {
+    this.element.addEventListener("cancel", this.handleCancel);
+    this.element.addEventListener("close", this.handleClose);
+  }
 
   disconnect() {
-    // Nothing is left to wait for the exit animation, so apply the pending removal now.
-    if (this.hasPanelTarget) this.settleExit(this.panelTarget);
+    this.element.removeEventListener("cancel", this.handleCancel);
+    this.element.removeEventListener("close", this.handleClose);
+    // Nothing is left to wait for the exit animation, so apply the pending close now.
+    this.settleExit(this.element);
   }
 
   close() {
-    this.backdropTarget.dataset.state = "closed";
-    this.panelTarget.dataset.state = "closed";
-    // The panel carries the longer exit, so the backdrop has finished by the time it settles.
-    this.hideAfterExitAnimation(this.panelTarget);
+    if (this.element.dataset.state === "closed") return;
+
+    this.element.dataset.state = "closed";
+    // The ::backdrop's animationend lands on the dialog too; panel and backdrop share one exit duration so either settles it.
+    this.hideAfterExitAnimation(this.element);
   }
 
   afterExit() {
-    this.element.remove();
+    this.element.close();
   }
+
+  // A click on the ::backdrop targets the dialog, but so does one on the panel's own padding: hit-test the box.
+  backdropClick(e) {
+    if (e.target === this.element && !this.coversPoint(e.clientX, e.clientY)) this.close();
+  }
+
+  coversPoint(x, y) {
+    const { top, right, bottom, left } = this.element.getBoundingClientRect();
+    return left <= x && x <= right && top <= y && y <= bottom;
+  }
+
+  // Escape (and requestClose()) fire cancel; route it through the exit animation.
+  handleCancel = (e) => {
+    // A cancelled file picker inside the sheet bubbles its own cancel event.
+    if (e.target !== this.element) return;
+
+    e.preventDefault();
+    this.close();
+  };
+
+  handleClose = () => {
+    document.body.classList.remove("overflow-hidden");
+    // A close this controller did not start (a second Escape mid-exit) must not leave the exit listeners behind.
+    this.settleExit(this.element);
+  };
 
   // Overlay exit — the same block in every overlay controller, so keep them in sync.
   exitAnimationNames = new WeakMap();
