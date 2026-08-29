@@ -56,7 +56,7 @@ module RubyUI
       }
     end
 
-    def open_pct = @snap_points[@initial] || @snap_points.first
+    def open_pct = @snap_points[@initial.clamp(0..)] || @snap_points.first || 100
 
     def backdrop
       div(

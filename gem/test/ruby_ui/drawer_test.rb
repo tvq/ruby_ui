@@ -66,10 +66,17 @@ class RubyUI::DrawerTest < ComponentTest
     assert_match(/style="--drawer-band: 70%"/, output)
   end
 
+  # Mirrors the controller: an index outside the list (negative included) opens at the first snap point.
   def test_initial_out_of_range_opens_at_the_first_snap_point
-    output = phlex { RubyUI.DrawerContent(snap_points: [40, 80], initial: 5) { "body" } }
+    assert_match(/style="--drawer-band: 40%"/, phlex { RubyUI.DrawerContent(snap_points: [40, 80], initial: 5) { "body" } })
+    assert_match(/style="--drawer-band: 40%"/, phlex { RubyUI.DrawerContent(snap_points: [40, 80], initial: -1) { "body" } })
+  end
 
-    assert_match(/style="--drawer-band: 40%"/, output)
+  def test_no_snap_points_opens_full_height
+    output = phlex { RubyUI.DrawerContent(snap_points: []) { "body" } }
+
+    assert_match(/style="--drawer-band: 100%"/, output)
+    refute_match(/before:snap-start/, output)
   end
 
   def test_modal_renders_a_backdrop_that_holds_the_last_frame_of_its_exit_animation

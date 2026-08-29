@@ -24,6 +24,7 @@ export default class extends Controller {
   dragging = false
   closing = false
   closed = false
+  lockedBody = false
   keyboardInset = 0
   keyboardShift = false
   restPctBeforeKeyboard = null
@@ -34,7 +35,9 @@ export default class extends Controller {
     this.labelDialog()
 
     if (this.modalValue) {
-      document.body.classList.add("overflow-hidden")
+      // Only the lock we took is ours to release; a Dialog underneath keeps its own.
+      this.lockedBody = !document.body.classList.contains("overflow-hidden")
+      if (this.lockedBody) document.body.classList.add("overflow-hidden")
       this.element.showModal()
     } else {
       this.element.show()
@@ -51,8 +54,9 @@ export default class extends Controller {
     this.animateOpen()
   }
 
+  // Losing the controller while open (Stimulus stopped, element swapped out) must not leave a dead modal in the top layer.
   disconnect() {
-    this.cleanup()
+    this.teardown()
   }
 
   // Name the dialog by its own title and description, as Radix does.
@@ -182,9 +186,9 @@ export default class extends Controller {
   }
 
   onKeydown = (event) => {
-    if (event.key !== "Escape") return
+    if (event.key !== "Escape" || !this.dismissibleValue) return
     event.preventDefault()
-    this.dismiss()
+    this.close()
   }
 
   // Escape on a modal dialog: cancel the instant native close, run ours instead.
@@ -315,14 +319,16 @@ export default class extends Controller {
   }
 
   cleanup() {
-    if (this.modalValue) document.body.classList.remove("overflow-hidden")
+    if (this.lockedBody) document.body.classList.remove("overflow-hidden")
     cancelAnimationFrame(this.frame)
     clearTimeout(this.settleTimer)
     document.removeEventListener("keydown", this.onKeydown)
     this.element.removeEventListener("cancel", this.onCancel)
     this.element.removeEventListener("close", this.onClose)
-    this.scrollerTarget.removeEventListener("scroll", this.onScroll)
-    this.scrollerTarget.removeEventListener("scrollend", this.onSettle)
+    if (this.hasScrollerTarget) {
+      this.scrollerTarget.removeEventListener("scroll", this.onScroll)
+      this.scrollerTarget.removeEventListener("scrollend", this.onSettle)
+    }
     window.visualViewport?.removeEventListener("resize", this.onViewport)
     window.visualViewport?.removeEventListener("scroll", this.onViewport)
   }

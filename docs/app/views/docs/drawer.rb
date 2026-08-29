@@ -121,13 +121,7 @@ class Views::Docs::Drawer < Views::Base
       end
 
       Heading(level: 2) { "Drawer or Sheet?" }
-      p(class: "text-muted-foreground text-sm leading-relaxed") do
-        plain "Sheet slides a panel in from any edge and leaves it there. Drawer is a bottom sheet: you drag it between snap points by the handle and swipe it down to close it. "
-        plain "The modal variant is a native "
-        code(class: "rounded bg-muted px-1.5 py-0.5 text-xs") { "<dialog>" }
-        plain " opened with showModal(), so the browser provides the focus trap, aria-modal and the inert page. "
-        plain "Drawer only comes up from the bottom edge. There is no equivalent of shadcn's swipeDirection for the other sides."
-      end
+      p(class: "text-muted-foreground text-sm leading-relaxed") { "Sheet slides a panel in from any edge and leaves it there. Drawer is a bottom sheet: you drag it between snap points by the handle and swipe it down to close it. The modal variant is a native <dialog> opened with showModal(), so the browser provides the focus trap, aria-modal and the inert page. Drawer only comes up from the bottom edge. There is no equivalent of shadcn's swipeDirection for the other sides." }
 
       render Components::ComponentSetup::Tabs.new(component_name: component)
 

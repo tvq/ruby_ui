@@ -10,7 +10,8 @@ export default class extends Controller {
 
   // The content waits in a <template>; a copy goes to <body> so the fixed dialog
   // is not caught by a transformed ancestor.
-  open() {
+  open(event) {
+    event?.preventDefault()
     if (this.dialog?.isConnected) return
 
     this.dialog = this.contentTarget.content.firstElementChild.cloneNode(true)
