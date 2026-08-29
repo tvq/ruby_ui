@@ -2,10 +2,10 @@
 
 module RubyUI
   class DrawerContent < Base
-    # snap_points: % of the viewport the panel covers at each rest position; initial: index it opens at.
+    # snap_points: how far up the panel comes at each rest position, in shadcn's units; initial: index it opens at.
     # dismissible: false ignores the scrim click, Escape and a swipe below the lowest snap point.
     # initial_focus: false focuses the panel instead of the first field, so a form does not raise the keyboard on open.
-    def initialize(snap_points: [60, 92], initial: 0, modal: true, dismissible: true, handle: true, initial_focus: true, **attrs)
+    def initialize(snap_points: [0.6, 0.92], initial: 0, modal: true, dismissible: true, handle: true, initial_focus: true, **attrs)
       @snap_points = snap_points
       @initial = initial
       @modal = modal
@@ -20,7 +20,7 @@ module RubyUI
         dialog(**dialog_attrs) do
           backdrop if @modal
           scroller do
-            @snap_points.each { |pct| snap_marker(pct) }
+            @snap_points.each { |point| snap_marker(point) }
             # Full-screen spacer: makes the scroll range, and scrollTop 0 the dismissed rest position.
             div(class: "h-full snap-start")
             div(**attrs) do
@@ -53,11 +53,10 @@ module RubyUI
     def dialog_attrs
       {
         class: "fixed inset-0 z-50 m-0 h-full w-full max-h-none max-w-none border-0 bg-transparent p-0 pointer-events-none backdrop:bg-transparent",
-        style: "--drawer-band: #{open_pct}%",
+        style: "--drawer-band: #{open_length}",
         data: {
           controller: "ruby-ui--drawer-content",
           turbo_temporary: true,
-          ruby_ui__drawer_content_snap_points_value: @snap_points.to_json,
           ruby_ui__drawer_content_initial_value: @initial,
           ruby_ui__drawer_content_modal_value: @modal.to_s,
           ruby_ui__drawer_content_dismissible_value: @dismissible.to_s
@@ -65,7 +64,24 @@ module RubyUI
       }
     end
 
-    def open_pct = @snap_points[@initial.clamp(0..)] || @snap_points.first || 100
+    def open_length
+      point = @snap_points[@initial.clamp(0..)] || @snap_points.first
+      point ? css_length(point) : "100%"
+    end
+
+    # shadcn's units: up to 1 is a fraction of the viewport, above 1 is pixels, and a string passes through ("24rem").
+    def css_length(point)
+      return point if point.is_a?(String)
+
+      (point > 1) ? "#{trim(point)}px" : "#{trim(point * 100)}%"
+    end
+
+    # 0.6 * 100 is 60.00000000000001 in binary floating point, and CSS should read 60%.
+    # Kernel#format would be the obvious tool, but phlex-rails gives every component its own zero-argument #format.
+    def trim(number)
+      rounded = number.round(6)
+      ((rounded % 1) == 0) ? rounded.to_i : rounded
+    end
 
     def backdrop
       div(
@@ -87,11 +103,12 @@ module RubyUI
       )
     end
 
-    # Zero-height sentinel whose ::before sits exactly pct% down the scroller.
-    def snap_marker(pct)
+    # Sentinel out of the flow: its ::before is the snap target, and its offsetTop is the scroll position the controller animates to.
+    def snap_marker(point)
       div(
-        class: "relative -mb-px h-px before:absolute before:inset-x-0 before:top-px before:h-px before:snap-start before:content-['']",
-        style: "top: calc(#{pct}% - 1px)"
+        class: "relative -mb-px h-px before:absolute before:inset-x-0 before:top-0 before:h-px before:snap-start before:content-['']",
+        style: "top: #{css_length(point)}",
+        data: {ruby_ui__drawer_content_target: "snap"}
       )
     end
   end

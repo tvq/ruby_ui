@@ -12,9 +12,8 @@ const REST_SLACK = 4
 
 // Bottom sheet on a native <dialog> + CSS scroll-snap: a full-screen spacer above the panel makes scrollTop 0 the dismissed rest position.
 export default class extends Controller {
-  static targets = ["scroller", "panel", "backdrop", "title", "description"]
+  static targets = ["scroller", "panel", "backdrop", "title", "description", "snap"]
   static values = {
-    snapPoints: Array,
     initial: { type: Number, default: 0 },
     modal: { type: Boolean, default: true },
     dismissible: { type: Boolean, default: true }
@@ -47,6 +46,7 @@ export default class extends Controller {
     this.element.addEventListener("close", this.onClose)
     this.scrollerTarget.addEventListener("scroll", this.onScroll, { passive: true })
     this.scrollerTarget.addEventListener("scrollend", this.onSettle)
+    window.addEventListener("resize", this.onResize)
     this.trackKeyboard()
 
     // After show: native autofocus may have scrolled the panel into view.
@@ -72,20 +72,19 @@ export default class extends Controller {
     return element.id
   }
 
-  get restPcts() {
-    return this.snapPointsValue.length ? this.snapPointsValue : [100]
-  }
-
-  get openPct() {
-    return this.restPcts[this.initialValue] ?? this.restPcts[0]
-  }
-
   get openOffset() {
-    return this.offsetFor(this.openPct)
+    return this.snapOffsets[Math.max(0, this.initialValue)] ?? this.snapOffsets[0]
   }
 
+  // Measured, not computed from the values, so a snap point can be given in any CSS unit. Only a resize moves them.
   get snapOffsets() {
-    return this.restPcts.map((pct) => this.offsetFor(pct))
+    return (this.snaps ??= this.measureSnaps())
+  }
+
+  // Without snap points the panel has one rest position: the full height of the scroller.
+  measureSnaps() {
+    const offsets = this.snapTargets.map((marker) => marker.offsetTop)
+    return offsets.length ? offsets : [this.scrollerTarget.clientHeight]
   }
 
   get lowestOffset() {
@@ -99,10 +98,6 @@ export default class extends Controller {
   // Where the panel may rest: the snap points, plus 0 — dismissed — when dismissible.
   get restPoints() {
     return this.dismissibleValue ? [0, ...this.snapOffsets] : this.snapOffsets
-  }
-
-  offsetFor(pct) {
-    return Math.round((this.scrollerTarget.clientHeight * pct) / 100)
   }
 
   // Indexes survive a resize, unlike the pixel offsets they are measured from.
@@ -163,6 +158,12 @@ export default class extends Controller {
     else this.animateScroll(this.lowestOffset, SETTLE_MS)
   }
 
+  onResize = () => {
+    this.snaps = null
+    this.trackBand()
+    this.markState()
+  }
+
   // The snap point the panel came to rest at, reported once per change.
   reportSnap() {
     const index = this.nearestSnapIndex()
@@ -191,6 +192,7 @@ export default class extends Controller {
     if (toggled && inset > 0 && !this.dragging) this.snapIndexBeforeKeyboard = this.nearestSnapIndex()
     this.keyboardInset = inset
     this.scrollerTarget.style.bottom = `${inset}px`
+    this.snaps = null
     this.trackBand()
     if (!toggled || this.dragging || this.closing) return
 
@@ -350,6 +352,7 @@ export default class extends Controller {
     cancelAnimationFrame(this.frame)
     clearTimeout(this.settleTimer)
     document.removeEventListener("keydown", this.onKeydown)
+    window.removeEventListener("resize", this.onResize)
     this.element.removeEventListener("cancel", this.onCancel)
     this.element.removeEventListener("close", this.onClose)
     if (this.hasScrollerTarget) {

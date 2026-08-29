@@ -50,26 +50,38 @@ class RubyUI::DrawerTest < ComponentTest
   def test_default_snap_points
     output = phlex { RubyUI.DrawerContent { "body" } }
 
-    assert_match(/data-ruby-ui--drawer-content-snap-points-value="\[60,92\]"/, output)
     assert_match(/data-ruby-ui--drawer-content-initial-value="0"/, output)
     assert_match(/style="--drawer-band: 60%"/, output)
+    assert_match(/style="top: 60%"/, output)
+    assert_match(/style="top: 92%"/, output)
+  end
+
+  # shadcn's units: up to 1 is a fraction of the viewport, above 1 is pixels, a string passes through.
+  def test_snap_points_accept_fractions_pixels_and_css_lengths
+    output = phlex { RubyUI.DrawerContent(snap_points: [0.25, 400, "24rem", 1]) { "body" } }
+
+    assert_match(/style="top: 25%"/, output)
+    assert_match(/style="top: 400px"/, output)
+    assert_match(/style="top: 24rem"/, output)
+    assert_match(/style="top: 100%"/, output)
+    assert_match(/style="--drawer-band: 25%"/, output)
   end
 
   def test_snap_points_render_one_marker_each_and_open_at_initial
-    output = phlex { RubyUI.DrawerContent(snap_points: [35, 70, 100], initial: 1) { "body" } }
+    output = phlex { RubyUI.DrawerContent(snap_points: [0.35, 0.7, 1], initial: 1) { "body" } }
 
     assert_equal 3, output.scan("before:snap-start").size
-    assert_match(/style="top: calc\(35% - 1px\)"/, output)
-    assert_match(/style="top: calc\(100% - 1px\)"/, output)
-    assert_match(/data-ruby-ui--drawer-content-snap-points-value="\[35,70,100\]"/, output)
+    assert_equal 3, output.scan("drawer-content-target=\"snap\"").size
+    assert_match(/style="top: 35%"/, output)
+    assert_match(/style="top: 100%"/, output)
     assert_match(/data-ruby-ui--drawer-content-initial-value="1"/, output)
     assert_match(/style="--drawer-band: 70%"/, output)
   end
 
   # Mirrors the controller: an index outside the list (negative included) opens at the first snap point.
   def test_initial_out_of_range_opens_at_the_first_snap_point
-    assert_match(/style="--drawer-band: 40%"/, phlex { RubyUI.DrawerContent(snap_points: [40, 80], initial: 5) { "body" } })
-    assert_match(/style="--drawer-band: 40%"/, phlex { RubyUI.DrawerContent(snap_points: [40, 80], initial: -1) { "body" } })
+    assert_match(/style="--drawer-band: 40%"/, phlex { RubyUI.DrawerContent(snap_points: [0.4, 0.8], initial: 5) { "body" } })
+    assert_match(/style="--drawer-band: 40%"/, phlex { RubyUI.DrawerContent(snap_points: [0.4, 0.8], initial: -1) { "body" } })
   end
 
   def test_no_snap_points_opens_full_height

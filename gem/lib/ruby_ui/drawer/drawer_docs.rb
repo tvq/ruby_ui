@@ -37,13 +37,13 @@ class Views::Docs::Drawer < Views::Base
         RUBY
       end
 
-      render Docs::VisualCodeExample.new(title: "Snap points", description: "snap_points lists the heights the panel can rest at, as a percentage of the viewport. initial is the index of the one it opens at. A flick moves to the next snap point in its direction.", context: self) do
+      render Docs::VisualCodeExample.new(title: "Snap points", description: "snap_points lists the heights the panel can rest at, in shadcn's units: up to 1 is a fraction of the viewport, above 1 is pixels, and a string is any CSS length. initial is the index of the one it opens at, and a flick moves to the next snap point in its direction.", context: self) do
         <<~RUBY
           Drawer do
             DrawerTrigger do
               Button(variant: :outline) { "Open at 35%" }
             end
-            DrawerContent(snap_points: [35, 70, 100]) do
+            DrawerContent(snap_points: [0.35, 0.7, 1]) do
               DrawerHeader do
                 DrawerTitle { "Snap points" }
                 DrawerDescription { "Rests at 35%, 70% or 100% of the viewport." }
@@ -64,7 +64,7 @@ class Views::Docs::Drawer < Views::Base
             DrawerTrigger do
               Button(variant: :outline) { "Open non-modal" }
             end
-            DrawerContent(modal: false, snap_points: [40]) do
+            DrawerContent(modal: false, snap_points: [0.4]) do
               DrawerHeader do
                 DrawerTitle { "Now playing" }
                 DrawerDescription { "No scrim, so the page behind stays interactive." }
@@ -85,7 +85,7 @@ class Views::Docs::Drawer < Views::Base
             DrawerTrigger do
               Button(variant: :outline) { "Open non-dismissible" }
             end
-            DrawerContent(dismissible: false, snap_points: [45]) do
+            DrawerContent(dismissible: false, snap_points: [0.45]) do
               DrawerHeader do
                 DrawerTitle { "Delete account?" }
                 DrawerDescription { "This cannot be undone. Choose one of the options below." }
@@ -109,11 +109,11 @@ class Views::Docs::Drawer < Views::Base
             DrawerTrigger do
               Button(variant: :outline) { "Open with a custom handle" }
             end
-            DrawerContent(handle: false, snap_points: [50]) do
+            DrawerContent(handle: false, snap_points: ["24rem"]) do
               DrawerSwipeHandle(class: "w-20 bg-primary")
               DrawerHeader do
                 DrawerTitle { "Custom handle" }
-                DrawerDescription { "Wider, and in the primary color." }
+                DrawerDescription { "Wider, in the primary color, and the drawer opens 24rem tall." }
               end
             end
           end
