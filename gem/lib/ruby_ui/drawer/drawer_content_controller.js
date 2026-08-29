@@ -28,32 +28,57 @@ export default class extends Controller {
   keyboardShift = false
   snapIndexBeforeKeyboard = null
   samples = []
+  snaps = null
 
-  // showModal() brings top layer, focus trap and an inert page; show() keeps the page interactive, so Escape needs our own listener.
   connect() {
     this.labelDialog()
-
-    if (this.modalValue) {
-      // Only the lock we took is ours to release; a Dialog underneath keeps its own.
-      this.lockedBody = !document.body.classList.contains("overflow-hidden")
-      if (this.lockedBody) document.body.classList.add("overflow-hidden")
-      this.element.showModal()
-    } else {
-      this.element.show()
-      document.addEventListener("keydown", this.onKeydown)
-    }
-    this.element.addEventListener("cancel", this.onCancel)
-    this.element.addEventListener("close", this.onClose)
-    this.scrollerTarget.addEventListener("scroll", this.onScroll, { passive: true })
-    this.scrollerTarget.addEventListener("scrollend", this.onSettle)
-    window.addEventListener("resize", this.onResize)
-    this.trackKeyboard()
+    this.show()
+    this.addEventListeners()
 
     // After show: native autofocus may have scrolled the panel into view.
     this.scrollerTarget.scrollTop = 0
     this.snapIndex = this.initialValue
     this.markState()
     this.animateOpen()
+  }
+
+  // showModal() brings top layer, focus trap and an inert page; show() keeps the page interactive.
+  show() {
+    if (!this.modalValue) {
+      this.element.show()
+      return
+    }
+
+    // Only the lock we took is ours to release; a Dialog underneath keeps its own.
+    this.lockedBody = !document.body.classList.contains("overflow-hidden")
+    if (this.lockedBody) document.body.classList.add("overflow-hidden")
+    this.element.showModal()
+  }
+
+  addEventListeners() {
+    // A non-modal dialog has no close watcher, so Escape is ours to handle.
+    if (!this.modalValue) document.addEventListener("keydown", this.onKeydown)
+    this.element.addEventListener("cancel", this.onCancel)
+    this.element.addEventListener("close", this.onClose)
+    this.scrollerTarget.addEventListener("scroll", this.onScroll, { passive: true })
+    this.scrollerTarget.addEventListener("scrollend", this.onSettle)
+    window.addEventListener("resize", this.onResize)
+    // iOS has no keyboard-inset env(): the visual viewport is where the keyboard height comes from.
+    window.visualViewport?.addEventListener("resize", this.onViewport)
+    window.visualViewport?.addEventListener("scroll", this.onViewport)
+  }
+
+  removeEventListeners() {
+    document.removeEventListener("keydown", this.onKeydown)
+    this.element.removeEventListener("cancel", this.onCancel)
+    this.element.removeEventListener("close", this.onClose)
+    if (this.hasScrollerTarget) {
+      this.scrollerTarget.removeEventListener("scroll", this.onScroll)
+      this.scrollerTarget.removeEventListener("scrollend", this.onSettle)
+    }
+    window.removeEventListener("resize", this.onResize)
+    window.visualViewport?.removeEventListener("resize", this.onViewport)
+    window.visualViewport?.removeEventListener("scroll", this.onViewport)
   }
 
   // Losing the controller while open (Stimulus stopped, element swapped out) must not leave a dead modal in the top layer.
@@ -102,9 +127,7 @@ export default class extends Controller {
 
   // Indexes survive a resize, unlike the pixel offsets they are measured from.
   nearestSnapIndex() {
-    const top = this.scrollerTarget.scrollTop
-    const offsets = this.snapOffsets
-    return offsets.reduce((best, offset, i) => (Math.abs(offset - top) < Math.abs(offsets[best] - top) ? i : best), 0)
+    return this.snapOffsets.indexOf(this.nearest(this.snapOffsets))
   }
 
   nearest(values, target = this.scrollerTarget.scrollTop) {
@@ -172,19 +195,13 @@ export default class extends Controller {
     this.dispatch("snap", { detail: { index, offset: this.snapOffsets[index] } })
   }
 
-  // iOS has no keyboard-inset env(): derive the keyboard height from the visual viewport and lift the scroller.
-  trackKeyboard() {
-    if (!window.visualViewport) return
-    visualViewport.addEventListener("resize", this.onViewport)
-    visualViewport.addEventListener("scroll", this.onViewport)
-  }
-
+  // The keyboard height, from the only place iOS reports it.
   onViewport = () => {
     const viewport = window.visualViewport
     this.followKeyboard(Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop))
   }
 
-  // The pre-keyboard snap survives as a percentage — px offsets die with any resize.
+  // The pre-keyboard snap is kept as an index: the offsets it was measured from move with the resize.
   followKeyboard(inset) {
     inset = Math.round(inset)
     if (inset === this.keyboardInset) return
@@ -351,15 +368,6 @@ export default class extends Controller {
     if (this.lockedBody) document.body.classList.remove("overflow-hidden")
     cancelAnimationFrame(this.frame)
     clearTimeout(this.settleTimer)
-    document.removeEventListener("keydown", this.onKeydown)
-    window.removeEventListener("resize", this.onResize)
-    this.element.removeEventListener("cancel", this.onCancel)
-    this.element.removeEventListener("close", this.onClose)
-    if (this.hasScrollerTarget) {
-      this.scrollerTarget.removeEventListener("scroll", this.onScroll)
-      this.scrollerTarget.removeEventListener("scrollend", this.onSettle)
-    }
-    window.visualViewport?.removeEventListener("resize", this.onViewport)
-    window.visualViewport?.removeEventListener("scroll", this.onViewport)
+    this.removeEventListeners()
   }
 }

@@ -64,6 +64,7 @@ module RubyUI
       }
     end
 
+    # Out of range opens at the first snap point, as the controller does; without any, the panel is full height.
     def open_length
       point = @snap_points[@initial.clamp(0..)] || @snap_points.first
       point ? css_length(point) : "100%"
@@ -73,12 +74,12 @@ module RubyUI
     def css_length(point)
       return point if point.is_a?(String)
 
-      (point > 1) ? "#{trim(point)}px" : "#{trim(point * 100)}%"
+      (point > 1) ? "#{css_number(point)}px" : "#{css_number(point * 100)}%"
     end
 
     # 0.6 * 100 is 60.00000000000001 in binary floating point, and CSS should read 60%.
     # Kernel#format would be the obvious tool, but phlex-rails gives every component its own zero-argument #format.
-    def trim(number)
+    def css_number(number)
       rounded = number.round(6)
       ((rounded % 1) == 0) ? rounded.to_i : rounded
     end
