@@ -120,6 +120,20 @@ class Views::Docs::Drawer < Views::Base
         RUBY
       end
 
+      Heading(level: 2) { "Styling and events" }
+      p(class: "text-muted-foreground text-sm leading-relaxed") { "The panel carries data-snap-points when the drawer has snap points, data-expanded once it reaches the largest one and data-swiping while a drag is in flight, so each state can be styled with a data-* variant. The controller fires opened, snap and closed events, and the snap event names the index it came to rest at." }
+
+      div(class: "rounded-md border bg-muted/30 p-4 mt-2") do
+        Codeblock(<<~RUBY, syntax: :ruby)
+          DrawerContent(
+            class: "data-expanded:rounded-none",
+            data: {action: "ruby-ui--drawer-content:snap->player#trackSnap"}
+          ) do
+            # ...
+          end
+        RUBY
+      end
+
       Heading(level: 2) { "Drawer or Sheet?" }
       p(class: "text-muted-foreground text-sm leading-relaxed") { "Sheet slides a panel in from any edge and leaves it there. Drawer is a bottom sheet: you drag it between snap points by the handle and swipe it down to close it. The modal variant is a native <dialog> opened with showModal(), so the browser provides the focus trap, aria-modal and the inert page. Drawer only comes up from the bottom edge. There is no equivalent of shadcn's swipeDirection for the other sides." }
 

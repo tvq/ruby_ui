@@ -79,6 +79,19 @@ class RubyUI::DrawerTest < ComponentTest
     refute_match(/before:snap-start/, output)
   end
 
+  def test_panel_carries_the_snap_points_style_hook
+    assert_match(/data-snap-points/, phlex { RubyUI.DrawerContent { "body" } })
+    refute_match(/data-snap-points/, phlex { RubyUI.DrawerContent(snap_points: []) { "body" } })
+  end
+
+  # An autofocus panel wins the dialog's focusing steps, so the first field is left alone.
+  def test_initial_focus_false_makes_the_panel_take_focus
+    output = phlex { RubyUI.DrawerContent(initial_focus: false) { "body" } }
+
+    assert_match(/<div [^>]*tabindex="-1"[^>]*autofocus/, output)
+    refute_match(/autofocus/, phlex { RubyUI.DrawerContent { "body" } })
+  end
+
   def test_modal_renders_a_backdrop_that_holds_the_last_frame_of_its_exit_animation
     output = phlex { RubyUI.DrawerContent { "body" } }
 
@@ -123,7 +136,7 @@ class RubyUI::DrawerTest < ComponentTest
   def test_content_attrs_go_to_the_panel
     output = phlex { RubyUI.DrawerContent(class: "max-w-lg", id: "panel") { "body" } }
 
-    assert_match(/<div [^>]*data-ruby-ui--drawer-content-target="panel" id="panel"/, output)
+    assert_match(/<div [^>]*data-ruby-ui--drawer-content-target="panel"[^>]*id="panel"/, output)
     assert_match(/max-w-lg/, output)
   end
 end

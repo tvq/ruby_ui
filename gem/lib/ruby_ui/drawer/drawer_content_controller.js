@@ -27,7 +27,7 @@ export default class extends Controller {
   lockedBody = false
   keyboardInset = 0
   keyboardShift = false
-  restPctBeforeKeyboard = null
+  snapIndexBeforeKeyboard = null
   samples = []
 
   // showModal() brings top layer, focus trap and an inert page; show() keeps the page interactive, so Escape needs our own listener.
@@ -51,6 +51,8 @@ export default class extends Controller {
 
     // After show: native autofocus may have scrolled the panel into view.
     this.scrollerTarget.scrollTop = 0
+    this.snapIndex = this.initialValue
+    this.markState()
     this.animateOpen()
   }
 
@@ -103,18 +105,28 @@ export default class extends Controller {
     return Math.round((this.scrollerTarget.clientHeight * pct) / 100)
   }
 
-  nearestRestPct() {
-    return this.nearest(this.restPcts, this.scrollerTarget.scrollTop, (pct) => this.offsetFor(pct))
+  // Indexes survive a resize, unlike the pixel offsets they are measured from.
+  nearestSnapIndex() {
+    const top = this.scrollerTarget.scrollTop
+    const offsets = this.snapOffsets
+    return offsets.reduce((best, offset, i) => (Math.abs(offset - top) < Math.abs(offsets[best] - top) ? i : best), 0)
   }
 
-  nearest(values, target = this.scrollerTarget.scrollTop, offsetOf = (value) => value) {
-    return values.reduce((best, value) => (Math.abs(offsetOf(value) - target) < Math.abs(offsetOf(best) - target) ? value : best))
+  nearest(values, target = this.scrollerTarget.scrollTop) {
+    return values.reduce((best, value) => (Math.abs(value - target) < Math.abs(best - target) ? value : best))
   }
 
   onScroll = () => {
     this.trackBand()
     this.trackScrim()
+    this.markState()
     this.scheduleSettle()
+  }
+
+  // Style hooks, as in shadcn: data-expanded at the largest snap point, data-swiping while a drag is in flight.
+  markState() {
+    this.panelTarget.toggleAttribute("data-expanded", this.scrollerTarget.scrollTop >= this.highestOffset - REST_SLACK)
+    this.panelTarget.toggleAttribute("data-swiping", this.dragging)
   }
 
   // Below the lowest snap point the scrim follows the panel, so swiping out fades it like a native sheet.
@@ -142,10 +154,21 @@ export default class extends Controller {
       this.ready = !atBottom
       return
     }
-    if (!atBottom) return
+    if (!atBottom) {
+      this.reportSnap()
+      return
+    }
 
     if (this.dismissibleValue) this.close()
     else this.animateScroll(this.lowestOffset, SETTLE_MS)
+  }
+
+  // The snap point the panel came to rest at, reported once per change.
+  reportSnap() {
+    const index = this.nearestSnapIndex()
+    if (index === this.snapIndex) return
+    this.snapIndex = index
+    this.dispatch("snap", { detail: { index, offset: this.snapOffsets[index] } })
   }
 
   // iOS has no keyboard-inset env(): derive the keyboard height from the visual viewport and lift the scroller.
@@ -165,7 +188,7 @@ export default class extends Controller {
     inset = Math.round(inset)
     if (inset === this.keyboardInset) return
     const toggled = (inset > 0) !== (this.keyboardInset > 0)
-    if (toggled && inset > 0 && !this.dragging) this.restPctBeforeKeyboard = this.nearestRestPct()
+    if (toggled && inset > 0 && !this.dragging) this.snapIndexBeforeKeyboard = this.nearestSnapIndex()
     this.keyboardInset = inset
     this.scrollerTarget.style.bottom = `${inset}px`
     this.trackBand()
@@ -173,9 +196,9 @@ export default class extends Controller {
 
     if (inset > 0) {
       this.shiftTo(this.highestOffset)
-    } else if (this.restPctBeforeKeyboard != null) {
-      this.shiftTo(this.offsetFor(this.restPctBeforeKeyboard))
-      this.restPctBeforeKeyboard = null
+    } else if (this.snapIndexBeforeKeyboard != null) {
+      this.shiftTo(this.snapOffsets[this.snapIndexBeforeKeyboard])
+      this.snapIndexBeforeKeyboard = null
     }
   }
 
@@ -204,7 +227,7 @@ export default class extends Controller {
 
   // Not scrollTo(): mandatory snap fights it mid-flight on a freshly inserted scroller and the open jumps.
   animateOpen() {
-    this.animateScroll(this.openOffset, OPEN_MS)
+    this.animateScroll(this.openOffset, OPEN_MS, () => this.dispatch("opened"))
   }
 
   animateScroll(to, duration, onDone) {
@@ -236,8 +259,9 @@ export default class extends Controller {
     // A grab during the open animation would otherwise fight it for scrollTop.
     cancelAnimationFrame(this.frame)
     this.dragging = true
-    this.restPctBeforeKeyboard = null
+    this.snapIndexBeforeKeyboard = null
     this.keyboardShift = false
+    this.markState()
     this.dragOrigin = event.clientY
     this.dragFrom = this.scrollerTarget.scrollTop
     this.samples = [{ t: event.timeStamp, y: event.clientY }]
@@ -255,6 +279,7 @@ export default class extends Controller {
   endDrag(event) {
     if (!this.dragging) return
     this.dragging = false
+    this.markState()
     // pointercancel has already released it, and releasing twice throws.
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
@@ -315,6 +340,8 @@ export default class extends Controller {
     this.closed = true
     this.cleanup()
     if (this.element.open) this.element.close()
+    // Before the removal, so the event still reaches listeners up the tree.
+    this.dispatch("closed")
     this.element.remove()
   }
 

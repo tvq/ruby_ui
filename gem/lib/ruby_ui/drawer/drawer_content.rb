@@ -4,12 +4,14 @@ module RubyUI
   class DrawerContent < Base
     # snap_points: % of the viewport the panel covers at each rest position; initial: index it opens at.
     # dismissible: false ignores the scrim click, Escape and a swipe below the lowest snap point.
-    def initialize(snap_points: [60, 92], initial: 0, modal: true, dismissible: true, handle: true, **attrs)
+    # initial_focus: false focuses the panel instead of the first field, so a form does not raise the keyboard on open.
+    def initialize(snap_points: [60, 92], initial: 0, modal: true, dismissible: true, handle: true, initial_focus: true, **attrs)
       @snap_points = snap_points
       @initial = initial
       @modal = modal
       @dismissible = dismissible
       @handle = handle
+      @initial_focus = initial_focus
       super(**attrs)
     end
 
@@ -33,10 +35,17 @@ module RubyUI
     private
 
     # The panel is full-height; only the band above the fold (--drawer-band, tracked by the controller) is laid out.
+    # The dialog's focusing steps prefer an autofocus element, so a focusable panel keeps focus off the fields.
     def default_attrs
       {
-        class: "relative flex h-full flex-col overflow-clip rounded-t-lg bg-background text-foreground shadow-[0_-8px_30px_rgb(0_0_0/0.12)] snap-start pointer-events-auto after:flex-none after:h-[calc(100%_-_var(--drawer-band))] after:content-['']",
-        data: {ruby_ui__drawer_content_target: "panel"}
+        class: "group/drawer relative flex h-full flex-col overflow-clip rounded-t-lg bg-background text-foreground shadow-[0_-8px_30px_rgb(0_0_0/0.12)] snap-start pointer-events-auto after:flex-none after:h-[calc(100%_-_var(--drawer-band))] after:content-['']",
+        tabindex: ("-1" unless @initial_focus),
+        autofocus: (true unless @initial_focus),
+        data: {
+          ruby_ui__drawer_content_target: "panel",
+          # Style hooks, as in shadcn: the controller adds data-expanded and data-swiping.
+          snap_points: (true if @snap_points.any?)
+        }
       }
     end
 
