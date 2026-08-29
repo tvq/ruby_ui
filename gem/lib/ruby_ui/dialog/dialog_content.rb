@@ -11,15 +11,16 @@ module RubyUI
       full: "max-w-full"
     }
 
-    def initialize(size: :md, **attrs)
+    def initialize(size: :md, show_close_button: true, **attrs)
       @size = size
+      @show_close_button = show_close_button
       super(**attrs)
     end
 
     def view_template
       dialog(**attrs) do
         yield
-        close_button
+        close_button if @show_close_button
       end
     end
 

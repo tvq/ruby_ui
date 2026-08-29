@@ -94,6 +94,25 @@ class Views::Docs::Dialog < Views::Base
         RUBY
       end
 
+      render Docs::VisualCodeExample.new(title: "No close button", description: "Hide the corner close button and provide your own close action.", context: self) do
+        <<~RUBY
+          Dialog do
+            DialogTrigger do
+              Button(variant: :outline) { "No Close Button" }
+            end
+            DialogContent(show_close_button: false) do
+              DialogHeader do
+                DialogTitle { "No close button" }
+                DialogDescription { "This dialog has no close button in the corner. Escape and a click outside still close it." }
+              end
+              DialogFooter do
+                Button(variant: :outline, data: { action: 'click->ruby-ui--dialog#dismiss' }) { "Close" }
+              end
+            end
+          end
+        RUBY
+      end
+
       render Components::ComponentSetup::Tabs.new(component_name: component)
 
       render Docs::ComponentsTable.new(component_files(component))

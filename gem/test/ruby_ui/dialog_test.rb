@@ -3,6 +3,8 @@
 require "test_helper"
 
 class RubyUI::DialogTest < ComponentTest
+  CLOSE_BUTTON = /<span class="sr-only">Close<\/span>/
+
   def test_render_with_all_items
     output = phlex do
       RubyUI.Dialog do
@@ -157,6 +159,18 @@ class RubyUI::DialogTest < ComponentTest
     ].each { |klass| assert_includes classes, klass }
   end
 
+  def test_dialog_content_renders_the_close_button_by_default
+    assert_match(CLOSE_BUTTON, dialog_output)
+  end
+
+  def test_dialog_content_omits_the_close_button_when_disabled
+    output = dialog_output(show_close_button: false)
+
+    assert_match(/Content/, output)
+    refute_match(CLOSE_BUTTON, output, "show_close_button: false must not render the close button")
+    refute_match(/data-action="click->ruby-ui--dialog#dismiss"/, output, "The only dismiss action came from the close button")
+  end
+
   def test_dialog_content_does_not_render_data_state_when_closed
     output = phlex do
       RubyUI.Dialog do
@@ -169,13 +183,15 @@ class RubyUI::DialogTest < ComponentTest
 
   private
 
-  def dialog_classes
-    output = phlex do
+  def dialog_output(**attrs)
+    phlex do
       RubyUI.Dialog do
-        RubyUI.DialogContent { "Content" }
+        RubyUI.DialogContent(**attrs) { "Content" }
       end
     end
+  end
 
-    output[/<dialog\b.*?\sclass="([^"]*)"/m, 1].to_s.split
+  def dialog_classes
+    dialog_output[/<dialog\b.*?\sclass="([^"]*)"/m, 1].to_s.split
   end
 end
