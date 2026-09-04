@@ -9,10 +9,6 @@ export default class extends Controller {
     if (this.openValue) this.open();
   }
 
-  disconnect() {
-    document.body.classList.remove("overflow-hidden");
-  }
-
   open(e) {
     e?.preventDefault();
     this.dialogTarget.dataset.state = "open";

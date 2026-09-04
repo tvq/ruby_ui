@@ -31,7 +31,7 @@ class Views::Docs::Sheet < Views::Base
                 SheetClose do
                   Button(variant: :outline) { "Cancel" }
                 end
-                Button(type: "submit") { "Save" }
+                Button { "Save" }
               end
             end
           end
@@ -59,7 +59,7 @@ class Views::Docs::Sheet < Views::Base
                     SheetClose do
                       Button(variant: :outline) { "Cancel" }
                     end
-                    Button(type: "submit") { "Save" }
+                    Button { "Save" }
                   end
                 end
               end

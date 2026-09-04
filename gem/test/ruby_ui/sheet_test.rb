@@ -72,10 +72,6 @@ class RubyUI::SheetTest < ComponentTest
     assert_match(/data-action="click->ruby-ui--sheet-content#backdropClick keydown->form#guard"/, tag)
   end
 
-  def test_close_button_closes
-    assert_match(/<button[^>]*\sdata-action="click->ruby-ui--sheet-content#close"/, render_sheet)
-  end
-
   # The controller owns data-state; the closed markup must not start in one
   def test_content_renders_without_data_state
     refute_match(/\sdata-state=/, dialog_tag(render_sheet))
@@ -137,8 +133,11 @@ class RubyUI::SheetTest < ComponentTest
     assert_match(/data-action="click->ruby-ui--sheet-content#close click->form#reset"/, output)
   end
 
-  def test_close_button_is_rendered_by_default
-    assert_match(/<button[^>]*\sdata-action="click->ruby-ui--sheet-content#close"/, render_sheet)
+  def test_close_button_is_rendered_by_default_and_closes
+    button = render_sheet[/<button\b[^>]*\sdata-action="click->ruby-ui--sheet-content#close"[^>]*>/].to_s
+
+    refute_empty button, "SheetContent must render the corner close button"
+    assert_match(/\stype="button"/, button, "the corner button must not submit a form wrapped around the content")
   end
 
   def test_close_button_can_be_hidden

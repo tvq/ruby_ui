@@ -12,6 +12,8 @@ export default class extends Controller {
     this.element.removeEventListener("close", this.handleClose);
     // Nothing is left to wait for the exit animation, so apply the pending close now.
     this.settleExit(this.element);
+    // Removed while open, the dialog fires no close event; the lock must not outlive it.
+    this.releaseScrollLock();
   }
 
   close() {
@@ -46,10 +48,17 @@ export default class extends Controller {
   };
 
   handleClose = () => {
-    document.body.classList.remove("overflow-hidden");
+    this.releaseScrollLock();
     // A close this controller did not start (a second Escape mid-exit) must not leave the exit listeners behind.
     this.settleExit(this.element);
   };
+
+  // A nested Sheet or a Dialog may still be open underneath; the page stays locked for it.
+  releaseScrollLock() {
+    if (document.querySelector("dialog:modal")) return;
+
+    document.body.classList.remove("overflow-hidden");
+  }
 
   // Overlay exit — the same block in every overlay controller, so keep them in sync.
   exitAnimationNames = new WeakMap();
