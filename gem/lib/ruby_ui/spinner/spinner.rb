@@ -38,7 +38,7 @@ module RubyUI
 
     # A spinner inside a labelled control is decorative — the control announces busy.
     def announcement_attrs
-      return {aria: {hidden: "true"}} if @label.nil?
+      return {aria: {hidden: "true"}} if @label.to_s.strip.empty?
 
       {role: "status", aria: {label: @label}}
     end

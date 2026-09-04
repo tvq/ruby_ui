@@ -48,6 +48,18 @@ class RubyUI::SpinnerTest < ComponentTest
     refute_match(/aria-label/, output)
   end
 
+  def test_render_decorative_when_label_is_blank
+    ["", "  "].each do |label|
+      output = phlex do
+        RubyUI::Spinner(label: label)
+      end
+
+      assert_match(/aria-hidden="true"/, output)
+      refute_match(/role="status"/, output)
+      refute_match(/aria-label/, output)
+    end
+  end
+
   def test_render_with_arbitrary_attrs
     output = phlex do
       RubyUI::Spinner(data: {icon: "inline-start"}, id: "save-spinner")
