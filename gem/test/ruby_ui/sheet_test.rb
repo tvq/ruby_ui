@@ -96,8 +96,7 @@ class RubyUI::SheetTest < ComponentTest
     )
   end
 
-  # The backdrop's animationend is dispatched on the <dialog> under the same keyframe name,
-  # so its exit must be as long as the panel's or the panel is cut short.
+  # ::backdrop does not inherit the panel's --tw-duration, so it carries its own exit timing to fade in step.
   def test_content_animates_and_styles_backdrop
     assert_dialog_classes(
       "backdrop:bg-background/80",

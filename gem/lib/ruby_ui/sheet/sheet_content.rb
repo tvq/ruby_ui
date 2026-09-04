@@ -39,7 +39,7 @@ module RubyUI
           "m-0 max-w-full max-h-full not-open:hidden",
           "fixed pointer-events-auto z-50 gap-4 bg-background text-foreground p-6 shadow-lg transition ease-in-out overflow-scroll",
           "data-[state=open]:animate-in data-[state=open]:duration-500 data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=closed]:fill-mode-forwards",
-          # The ::backdrop's animationend lands on the dialog itself, so its exit must last as long as the panel's.
+          # ::backdrop does not inherit the panel's --tw-duration; give it the same exit so both fade in step.
           "backdrop:bg-background/80 backdrop:backdrop-blur-sm data-[state=open]:backdrop:animate-in data-[state=open]:backdrop:fade-in-0 data-[state=closed]:backdrop:animate-out data-[state=closed]:backdrop:fade-out-0 data-[state=closed]:backdrop:duration-300 data-[state=closed]:backdrop:fill-mode-forwards",
           SIDE_CLASS[@side]
         ]
