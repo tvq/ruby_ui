@@ -19,11 +19,15 @@ export default class extends Controller {
   }
 
   disconnect() {
-    this.dialogTarget.removeEventListener("close", this.handleClose);
-    this.dialogTarget.removeEventListener("cancel", this.handleCancel);
-    // Nothing is left to wait for the exit animation, so apply the pending close now.
-    this.settleExit(this.dialogTarget);
-    document.body.classList.remove("overflow-hidden");
+    // The <dialog> may already be gone; the scroll lock must be lifted either way.
+    if (this.hasDialogTarget) {
+      this.dialogTarget.removeEventListener("close", this.handleClose);
+      this.dialogTarget.removeEventListener("cancel", this.handleCancel);
+      // Nothing is left to wait for the exit animation, so apply the pending close now.
+      this.settleExit(this.dialogTarget);
+    }
+    // Removed while open, the dialog fires no close event; the lock must not outlive it.
+    this.releaseScrollLock();
   }
 
   open(e) {
@@ -63,10 +67,17 @@ export default class extends Controller {
   };
 
   handleClose = () => {
-    document.body.classList.remove("overflow-hidden");
+    this.releaseScrollLock();
     // A close this controller did not start (a second Escape mid-exit) must not leave a pending exit behind.
     this.settleExit(this.dialogTarget);
   };
+
+  // A nested Dialog or a Sheet may still be open underneath; the page stays locked for it.
+  releaseScrollLock() {
+    if (document.querySelector("dialog:modal")) return;
+
+    document.body.classList.remove("overflow-hidden");
+  }
 
   // Overlay exit — unlike the other overlays this waits on the Animation objects: the ::backdrop animates too,
   // and its events land on the <dialog> under the same keyframe names as the panel's.
