@@ -181,8 +181,12 @@ export default class extends Controller {
     else this.animateScroll(this.lowestOffset, SETTLE_MS)
   }
 
+  // The snap points move with the viewport (measured, not stored), so the panel goes back onto the one it rested at.
   onResize = () => {
     this.snaps = null
+    if (this.ready && !this.dragging && !this.closing && !this.keyboardShift) {
+      this.scrollerTarget.scrollTop = this.snapOffsets[this.snapIndex] ?? this.openOffset
+    }
     this.trackBand()
     this.markState()
   }

@@ -121,15 +121,15 @@ class Views::Docs::Drawer < Views::Base
       end
 
       Heading(level: 2) { "Styling and events" }
-      p(class: "text-muted-foreground text-sm leading-relaxed") { "The panel carries data-snap-points when the drawer has snap points, data-expanded once it reaches the largest one and data-swiping while a drag is in flight, so each state can be styled with a data-* variant. The controller fires opened, snap and closed events, and the snap event names the index it came to rest at." }
+      p(class: "text-muted-foreground text-sm leading-relaxed") { "The panel carries data-snap-points when the drawer has snap points, data-expanded once it reaches the largest one and data-swiping while a drag is in flight, so each state can be styled with a data-* variant. Drawer fires opened, snap and closed events on its element, and the snap event's detail names the index the panel came to rest at. The open dialog lives under <body>, out of reach of the controllers on the page, so listen on Drawer rather than on DrawerContent." }
 
       div(class: "rounded-md border bg-muted/30 p-4 mt-2") do
         Codeblock(<<~RUBY, syntax: :ruby)
-          DrawerContent(
-            class: "data-expanded:rounded-none",
-            data: {action: "ruby-ui--drawer-content:snap->player#trackSnap"}
-          ) do
-            # ...
+          Drawer(data: {action: "ruby-ui--drawer:snap->player#trackSnap"}) do
+            DrawerTrigger { Button { "Now playing" } }
+            DrawerContent(class: "data-expanded:rounded-none") do
+              # ...
+            end
           end
         RUBY
       end
