@@ -19,10 +19,13 @@ export default class extends Controller {
   }
 
   disconnect() {
-    this.dialogTarget.removeEventListener("cancel", this.handleCancel);
-    this.dialogTarget.removeEventListener("close", this.handleClose);
-    // Nothing is left to wait for the exit animation, so apply the pending close now.
-    this.settleExit(this.dialogTarget);
+    // The <dialog> may already be gone; the scroll lock must be lifted either way.
+    if (this.hasDialogTarget) {
+      this.dialogTarget.removeEventListener("cancel", this.handleCancel);
+      this.dialogTarget.removeEventListener("close", this.handleClose);
+      // Nothing is left to wait for the exit animation, so apply the pending close now.
+      this.settleExit(this.dialogTarget);
+    }
     document.body.classList.remove("overflow-hidden");
   }
 
