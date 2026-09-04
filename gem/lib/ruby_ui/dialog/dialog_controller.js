@@ -38,7 +38,6 @@ export default class extends Controller {
     if (this.dialogTarget.dataset.state === "closed") return;
 
     this.dialogTarget.dataset.state = "closed";
-    // The ::backdrop's animationend lands on the dialog too; panel and backdrop share one duration so either settles it.
     this.hideAfterExitAnimation(this.dialogTarget);
   }
 
@@ -56,6 +55,8 @@ export default class extends Controller {
   handleCancel = (e) => {
     // A cancelled file picker inside the dialog bubbles its own cancel event.
     if (e.target !== this.dialogTarget) return;
+    // Already on its way out: let a second Escape close natively where the browser allows it.
+    if (this.dialogTarget.dataset.state === "closed") return;
 
     e.preventDefault();
     this.dismiss();
@@ -63,41 +64,36 @@ export default class extends Controller {
 
   handleClose = () => {
     document.body.classList.remove("overflow-hidden");
-    // A close this controller did not start (a second Escape mid-exit) must not leave the exit listeners behind.
+    // A close this controller did not start (a second Escape mid-exit) must not leave a pending exit behind.
     this.settleExit(this.dialogTarget);
   };
 
-  // Overlay exit — the same block in every overlay controller, so keep them in sync.
-  exitAnimationNames = new WeakMap();
-
+  // Overlay exit — unlike the other overlays this waits on the Animation objects: the ::backdrop animates too,
+  // and its events land on the <dialog> under the same keyframe names as the panel's.
   hideAfterExitAnimation(animated) {
+    const run = (this.exitRun = {});
+    // subtree: true is what lists the ::backdrop's animation; descendants are filtered back out.
     const exitAnimations = animated
-      .getAnimations()
-      .filter((animation) => animation instanceof CSSAnimation);
+      .getAnimations({ subtree: true })
+      .filter((animation) => animation instanceof CSSAnimation && animation.effect?.target === animated);
 
-    // No exit animation, or no box to run it in: animationend would never fire.
+    // No exit animation, or no box to run it in: nothing would ever finish.
     if (exitAnimations.length === 0) {
       this.settleExit(animated);
       return;
     }
 
-    this.exitAnimationNames.set(animated, exitAnimations.map((animation) => animation.animationName));
-    animated.addEventListener("animationend", this.handleExitAnimationEnd);
-    animated.addEventListener("animationcancel", this.handleExitAnimationEnd);
+    // A cancelled exit (reopened mid-exit) counts as finished too.
+    Promise.allSettled(exitAnimations.map((animation) => animation.finished)).then(() => {
+      // A later dismiss or close owns the dialog now; this run is stale.
+      if (this.exitRun !== run) return;
+
+      this.settleExit(animated);
+    });
   }
 
-  handleExitAnimationEnd = (event) => {
-    // animationend bubbles — an animated child must not hide its container.
-    if (event.target !== event.currentTarget) return;
-    // Closing mid-open cancels the enter animation; only the exit run settles this.
-    if (!this.exitAnimationNames.get(event.currentTarget)?.includes(event.animationName)) return;
-
-    this.settleExit(event.currentTarget);
-  };
-
   settleExit(animated) {
-    animated.removeEventListener("animationend", this.handleExitAnimationEnd);
-    animated.removeEventListener("animationcancel", this.handleExitAnimationEnd);
+    this.exitRun = null;
     // Reopened mid-exit: it is on its way back in, leave it visible.
     if (animated.dataset.state !== "closed") return;
 
